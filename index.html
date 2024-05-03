@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/tone"></script>
+    <style>
+        .sector {
+            fill: ButtonFace;
+            stroke: ButtonText;
+            stroke-width: 0.01;
+        }
+
+        .sector.active {
+            fill: AccentColor;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <svg height="80vh" width="100vw" viewBox="-1.1 -1.1 2.2 2.2">
+        <rect x="-100%" y="-100%" width="200%" height="200%" fill="Canvas" @mouseover="play(0, 'over');"
+              @click="play(0, 'click');"/>
+        <g v-for="s in sectors">
+            <path :d="s.string" class="sector bigSector" :class="{active: active === s.nameBig}"
+                  @mouseover="play(s.nameBig, 'over');" @click="play(s.nameBig, 'click');"
+            />
+            <path :d="s.string2" class="sector smallSector" :class="{active: active === s.nameSmall}"
+                  @mouseover="play(s.nameSmall, 'over');" @click="play(s.nameSmall, 'click');"
+            />
+            <text dominant-baseline="central" style="pointer-events: none" :x="s.tx0" :y="s.ty0" :font-size="largeFont"
+                  text-anchor="middle" class="sectorText">
+                {{replacedModifiers(s.nameBig)}}
+            </text>
+            <text v-if="s.altBig" dominant-baseline="central" style="pointer-events: none; opacity: 0.5" :x="s.tx0"
+                  :y="s.ty0" :dy="largeFont * 0.7" :font-size="largeFont / 2"
+                  text-anchor="middle">{{replacedModifiers(s.altBig)}}
+            </text>
+
+            <text dominant-baseline="central" style="pointer-events: none" :x="s.tx1" :y="s.ty1" :font-size="smallFont"
+                  text-anchor="middle" class="sectorText">
+                {{replacedModifiers(s.nameSmall)}}
+            </text>
+            <text v-if="s.altSmall" dominant-baseline="central" style="pointer-events: none; opacity: 0.5" :x="s.tx1"
+                  :y="s.ty1" :dy="smallFont * 0.7" :font-size="smallFont / 2"
+                  text-anchor="middle">{{replacedModifiers(s.altSmall)}}
+            </text>
+        </g>
+    </svg>
+    <label>
+        <input type="checkbox" v-model="pureTone">
+        pureTone
+    </label>
+    <br/>
+    <label>
+        <input type="checkbox" v-model="playOnHover">
+        playOnHover
+    </label>
+
+</div>
+
+<script>
+    const {createApp} = Vue
+
+    createApp({
+        data() {
+            return {
+                pureTone: false,
+                octave: 2,
+                playOnHover: false,
+                small_r: 0.4,
+                middle_r: 0.65,
+                big_r: 1,
+                active: {},
+                largeFont: 0.16,
+                smallFont: 0.08,
+                names: [
+                    {nameBig: 'C', nameSmall: 'Am'},
+                    {nameBig: 'G', nameSmall: 'Em'},
+                    {nameBig: 'D', nameSmall: 'Bm'},
+                    {nameBig: 'A', nameSmall: 'F#m'},
+                    {nameBig: 'E', nameSmall: 'C#m'},
+                    {nameBig: 'B', nameSmall: 'G#m'},
+                    {nameBig: 'Gb', altBig: "F#", nameSmall: 'Ebm', altSmall: "D#m"},
+                    {nameBig: 'Db', altBig: "C#", nameSmall: 'Bbm', altSmall: "A#m"},
+                    {nameBig: 'Ab', altBig: "G#", nameSmall: 'Fm'},
+                    {nameBig: 'Eb', altBig: "D#", nameSmall: 'Cm'},
+                    {nameBig: 'Bb', altBig: "A#", nameSmall: 'Gm'},
+                    {nameBig: 'F', nameSmall: 'Dm'},
+                ],
+                message: 'Hello Vue!'
+            }
+        },
+        computed: {
+            sectors() {
+                let sectors = []
+                for (let n = 0; n < this.names.length; n++) {
+                    sectors.push(this.sector(n))
+                }
+                return sectors
+            }
+        },
+        methods: {
+            replacedModifiers(s) {
+                return s.replace("b", "♭").replace("#", "♯")
+            },
+            play(s, t) {
+                if (t === 'over' && this.playOnHover || t === 'click') {
+                    this.active = s;
+                    playCustom(s, this.octave, this.pureTone,);
+                }
+            },
+            sector(n) {
+                let s = {...this.names[n]}
+                console.log(n, n.toString(), Number(n))
+                let anglePad = this.playOnHover ? 0.07 : 0;
+                let spacePad = this.playOnHover ? 0.02 : 0
+                s.angle0 = Math.PI * 2 * (n - 0.5 + anglePad) / this.names.length;
+                s.angle1 = Math.PI * 2 * (n + 0.5 - anglePad) / this.names.length;
+                s.angle = Math.PI * 2 * n / this.names.length;
+
+                s.x0 = Math.sin(s.angle0) * this.big_r
+                s.y0 = -Math.cos(s.angle0) * this.big_r
+
+                s.x1 = Math.sin(s.angle1) * this.big_r
+                s.y1 = -Math.cos(s.angle1) * this.big_r
+
+                s.x2a = Math.sin(s.angle0) * (this.middle_r + spacePad)
+                s.y2a = -Math.cos(s.angle0) * (this.middle_r + spacePad)
+
+                s.x3a = Math.sin(s.angle1) * (this.middle_r + spacePad)
+                s.y3a = -Math.cos(s.angle1) * (this.middle_r + spacePad)
+
+                s.x2b = Math.sin(s.angle0) * (this.middle_r - spacePad)
+                s.y2b = -Math.cos(s.angle0) * (this.middle_r - spacePad)
+
+                s.x3b = Math.sin(s.angle1) * (this.middle_r - spacePad)
+                s.y3b = -Math.cos(s.angle1) * (this.middle_r - spacePad)
+
+                s.x4 = Math.sin(s.angle0) * this.small_r
+                s.y4 = -Math.cos(s.angle0) * this.small_r
+
+                s.x5 = Math.sin(s.angle1) * this.small_r
+                s.y5 = -Math.cos(s.angle1) * this.small_r
+
+                s.tx0 = Math.sin(s.angle) * (this.big_r + this.middle_r) / 2
+                s.ty0 = -Math.cos(s.angle) * (this.big_r + this.middle_r) / 2
+
+                s.tx1 = Math.sin(s.angle) * (this.small_r + this.middle_r) / 2
+                s.ty1 = -Math.cos(s.angle) * (this.small_r + this.middle_r) / 2
+
+
+                s.string = `M ${s.x0} ${s.y0} A ${this.big_r} ${this.big_r} 0 0 1 ${s.x1} ${s.y1}`
+                s.string += `L ${s.x3a} ${s.y3a}`
+                s.string += `A ${this.middle_r} ${this.middle_r} 0 0 0 ${s.x2a} ${s.y2a}`
+                s.string += `Z`
+
+                s.string2 = `M ${s.x2b} ${s.y2b} A ${this.middle_r} ${this.middle_r} 0 0 1 ${s.x3b} ${s.y3b}`
+                s.string2 += `L ${s.x5} ${s.y5}`
+                s.string2 += `A ${this.small_r} ${this.small_r} 0 0 0 ${s.x4} ${s.y4}`
+                s.string2 += `Z`
+
+
+                return s
+
+            }
+        },
+        watch: {}
+    }).mount('#app')
+
+
+    const synth = new Tone.PolySynth(Tone.FMSynth).toDestination();
+    synth.set({
+        "envelope": {
+            // "attack":0.05,
+            "release": 1,
+        }
+    });
+
+    function playCustom(chordName, octave, pure) {
+        synth.releaseAll();
+        if (chordName) {
+            let mainTone = chordName.replace("m", "") + octave;
+            console.log(mainTone)
+            let freq = Tone.Frequency(mainTone)
+            let tones;
+            if (pure) {
+                tones = [freq]
+            } else if (chordName.indexOf("m") === -1) {
+                tones = [freq, freq.transpose(4), freq.transpose(7)]
+            } else {
+                tones = [freq, freq.transpose(3), freq.transpose(7)]
+            }
+            synth.triggerAttack(tones);
+        }
+    }
+
+
+</script>
+
+</body>
+</html>
