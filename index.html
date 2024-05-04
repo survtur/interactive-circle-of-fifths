@@ -5,6 +5,7 @@
     <title>Title</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/tone"></script>
+    <script src="https://unpkg.com/hotkeys-js/dist/hotkeys.min.js"></script>
     <style>
         .sector {
             fill: ButtonFace;
@@ -12,8 +13,17 @@
             stroke-width: 0.01;
         }
 
-        .sector.active {
+        .active {
             fill: AccentColor;
+            background-color: AccentColor;
+        }
+
+        kbd {
+            border: 1px solid ButtonText;
+            background-color: ButtonFace;
+            padding-left: 0.3em;
+            padding-right: 0.3em;
+            border-radius: 0.2em
         }
     </style>
 </head>
@@ -30,51 +40,85 @@
                   @mouseover="play(s.nameSmall, 'over');" @click="play(s.nameSmall, 'click');"
             />
             <text dominant-baseline="central" style="pointer-events: none" :x="s.tx0" :y="s.ty0" :font-size="largeFont"
+                  :dy="s.altBig ? (-0.3 * smallFont) : 0"
                   text-anchor="middle" class="sectorText">
                 {{replacedModifiers(s.nameBig)}}
             </text>
             <text v-if="s.altBig" dominant-baseline="central" style="pointer-events: none; opacity: 0.5" :x="s.tx0"
-                  :y="s.ty0" :dy="largeFont * 0.7" :font-size="largeFont / 2"
+                  :y="s.ty0" :dy="largeFont * 0.6" :font-size="largeFont / 2"
                   text-anchor="middle">{{replacedModifiers(s.altBig)}}
             </text>
 
             <text dominant-baseline="central" style="pointer-events: none" :x="s.tx1" :y="s.ty1" :font-size="smallFont"
+                  :dy="s.altSmall ? (-0.2 * smallFont) : 0"
                   text-anchor="middle" class="sectorText">
                 {{replacedModifiers(s.nameSmall)}}
             </text>
             <text v-if="s.altSmall" dominant-baseline="central" style="pointer-events: none; opacity: 0.5" :x="s.tx1"
-                  :y="s.ty1" :dy="smallFont * 0.7" :font-size="smallFont / 2"
+                  :y="s.ty1" :dy="smallFont * 0.6" :font-size="smallFont / 2"
                   text-anchor="middle">{{replacedModifiers(s.altSmall)}}
             </text>
         </g>
     </svg>
-    <label>
-        <input type="checkbox" v-model="pureTone">
-        pureTone
-    </label>
-    <br/>
-    <label>
-        <input type="checkbox" v-model="playOnHover">
-        playOnHover
-    </label>
+    <section class="settings">
+        <div>
+            <label>
+                <input type="checkbox" v-model="pureTone">
+                pureTone <kbd>{{kbd.pureTone}}</kbd>
+            </label>
+        </div>
+        <div>
+            <label>
+                <input type="checkbox" v-model="playOnHover">
+                playOnHover <kbd>{{kbd.playOnHover}}</kbd>
+            </label>
+        </div>
+<!--        <div v-if="!playOnHover">-->
+<!--            <label>-->
+<!--                <input type="checkbox" v-model="playAfterRelease">-->
+<!--                Continious Tone <kbd>{{kbd.playAfterRelease}}</kbd>-->
+<!--            </label>-->
+<!--        </div>-->
+        <div>
+            Octave:
+            <button type="button" v-for="n of [1,2,3,4,5,6,7,8,9]" :style="octave !== n ? 'opacity: 30%' : ''"
+                    @click="octave = n">{{n}}
+            </button>
+            &nbsp;<kbd>1-9</kbd>
+        </div>
+        <div style="margin-top: 1em; font-size: small">
+            <a href="https://github.com/survtur/interactive-quinta-circle">Me on Github</a>
+        </div>
+    </section>
+
 
 </div>
 
 <script>
-    const {createApp} = Vue
+    const {createApp} = Vue;
+    const kbd = {
+        playOnHover: "h",
+        pureTone: "t",
+        playAfterRelease: "r"
+    }
 
     createApp({
         data() {
             return {
+                rotation: 0,
                 pureTone: false,
                 octave: 3,
                 playOnHover: false,
+                playAfterRelease: true,
+
                 small_r: 0.4,
                 middle_r: 0.65,
                 big_r: 1,
-                active: {},
                 largeFont: 0.16,
                 smallFont: 0.08,
+
+                active: false,
+
                 names: [
                     {nameBig: 'C', nameSmall: 'Am'},
                     {nameBig: 'G', nameSmall: 'Em'},
@@ -99,6 +143,9 @@
                     sectors.push(this.sector(n))
                 }
                 return sectors
+            },
+            kbd() {
+                return kbd
             }
         },
         methods: {
@@ -115,10 +162,10 @@
                 let s = {...this.names[n]}
                 console.log(n, n.toString(), Number(n))
                 let anglePad = this.playOnHover ? 0.07 : 0;
-                let spacePad = this.playOnHover ? 0.02 : 0
-                s.angle0 = Math.PI * 2 * (n - 0.5 + anglePad) / this.names.length;
-                s.angle1 = Math.PI * 2 * (n + 0.5 - anglePad) / this.names.length;
-                s.angle = Math.PI * 2 * n / this.names.length;
+                let spacePad = this.playOnHover ? 0.02 : 0;
+                s.angle0 = Math.PI * 2 * (n - 0.5 + anglePad + this.rotation) / this.names.length;
+                s.angle1 = Math.PI * 2 * (n + 0.5 - anglePad + this.rotation) / this.names.length;
+                s.angle = Math.PI * 2 * (n + this.rotation) / this.names.length;
 
                 s.x0 = Math.sin(s.angle0) * this.big_r
                 s.y0 = -Math.cos(s.angle0) * this.big_r
@@ -166,11 +213,25 @@
 
             }
         },
-        watch: {}
+        watch: {},
+        mounted() {
+            hotkeys(kbd.pureTone, () => {
+                this.pureTone = !this.pureTone
+            });
+            hotkeys(kbd.playOnHover, () => {
+                this.playOnHover = !this.playOnHover
+            });
+            hotkeys(kbd.playAfterRelease, () => {
+                this.playAfterRelease = !this.playAfterRelease
+            });
+            hotkeys("1,2,3,4,5,6,7,8,9", (e, h) => {
+                this.octave = Number(h.key)
+            })
+        }
     }).mount('#app')
 
 
-    const synth = new Tone.PolySynth(Tone.FMSynth).toDestination();
+    const synth = new Tone.PolySynth(Tone.AMSynth).toDestination();
     synth.set({
         "envelope": {
             // "attack":0.05,
@@ -186,11 +247,11 @@
             let freq = Tone.Frequency(mainTone)
             let tones;
             if (pure) {
-                tones = [freq]
+                tones = [freq.transpose(12)]
             } else if (chordName.indexOf("m") === -1) {
-                tones = [freq, freq.transpose(4), freq.transpose(7)]
+                tones = [freq, freq.transpose(16), freq.transpose(4), freq.transpose(7), freq.transpose(-12)]
             } else {
-                tones = [freq, freq.transpose(3), freq.transpose(7)]
+                tones = [freq, freq.transpose(15), freq.transpose(3), freq.transpose(7), freq.transpose(-12)]
             }
             synth.triggerAttack(tones);
         }
@@ -199,9 +260,5 @@
 
 </script>
 
-<div>
-<a href="https://github.com/survtur/interactive-quinta-circle">Me on Github</a>
-</div>
-    
 </body>
 </html>
